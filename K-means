@@ -1,0 +1,191 @@
+import numpy as np
+from numpy import loadtxt
+
+# Importing data 
+points = np.loadtxt('../resource/asnlib/public/Kmeans_data.csv', delimiter = ',')
+
+# Defining some important functions:
+
+def assignPointsToCentroids(centroids, points):
+    '''
+    Determines the centroid to which each point is nearest, and
+    store this as an integer.
+        
+    Inputs:
+        centroids: numpy array of shape (K, N), where K is the 
+        number of centroids and N is the dimensions of the points. 
+        
+        points: numpy array of shape (M, N), where M is the 
+        number of points and N is the dimensions of the points.
+
+    Outputs:
+        cluster_assignments: numpy array of shape (M,) where 
+        each entry corresponds to an integer (type = int) from 
+        0 to K-1 corresponding to the nearest centroid of a given 
+        point.
+    '''
+    cluster_assignments =[]
+    m = points.shape[0]
+    k = centroids.shape[0]
+    for i in range(m):
+        euc_dist =[]
+        for j in range(k):
+            euc_dist.append(np.linalg.norm(points[i]-centroids[j]))
+        index = np.argmin(euc_dist)
+        cluster_assignments.append(index)
+    cluster_assignments = np.asarray(cluster_assignments)
+    return cluster_assignments
+        
+def recalcCentroids(centroids, points, cluster_assignments):
+    '''
+    Recalculates centroid locations for each cluster 
+    as the mean of locations of all points assigned to it.
+    
+    Inputs:
+        centroids: numpy array of shape (K, N), where K is the 
+        number of centroids and N is the dimensions of the points. 
+        
+        points: numpy array of shape (M, N), where M is the 
+        number of points and N is the dimensions of the points.
+        
+        cluster_assignments: numpy array of shape (M,) where 
+        each entry corresponds to an integer (type = int) from 
+        0 to K-1 corresponding to the nearest centroid of a given 
+        point.
+
+    Outputs:
+        newCentroids: numpy array of shape (K, N), where K is the 
+                   number of centroids, containing the updated 
+                   centroids 
+    '''
+    m = points.shape[0]
+    k = centroids.shape[0]
+    newCentroids =[]
+    for i in range(k):
+        temp_arr = []
+        for j in range(m):
+            if cluster_assignments[j]==i:
+                temp_arr.append(points[j])
+        newCentroids.append(np.mean(temp_arr,axis=0))
+    
+    newCentroids = np.asarray(newCentroids)
+    return newCentroids
+
+def calcError(centroids, points, cluster_assignments):
+    '''
+    Calculates the sum of the squared distance between all points and 
+    their assigned centroids.
+    
+    Inputs:
+        centroids: numpy array of shape (K, N), where K is the 
+        number of centroids and N is the dimensions of the points. 
+        
+        points: numpy array of shape (M, N), where M is the 
+        number of points and N is the dimensions of the points.
+        
+        cluster_assignments: numpy array of shape (M,) where 
+        each entry corresponds to an integer (type = int) from 
+        0 to K-1 corresponding to the nearest centroid of a given 
+        point.
+
+    Outputs:
+        total_error: the sum of the squared distance between all points and 
+        their assigned centroids. (double) 
+    
+    '''
+    M = points.shape[0]
+    error = cluster_assignments
+    for i in range(M):
+        error[i] = np.linalg.norm(points[i]-centroids[cluster_assignments[i]])
+    total_error = sum(error)
+    return total_error
+    
+    initial_centroids = points[0:11,:]
+
+# Calling above functions 
+res_cl_ass = assignPointsToCentroids(initial_centroids, points)
+centroids = recalcCentroids(initial_centroids, points, res_cl_ass)
+ans = loadtxt('../resource/asnlib/public/initial_centroidsk12.csv', delimiter = ',')
+
+# A sequence of checks 
+assert res_cl_ass.shape[0] == points.shape[0], "Make sure every point is assigned to a cluster"
+assert centroids.shape[1] == points.shape[1],"Make sure your centroids have the same number of dimensions as your points" #check array shapes
+assert type(res_cl_ass[1]) == np.int32 or type(res_cl_ass[1]) == np.int64, "Your cluster_assignments should be integers"
+assert (res_cl_ass == ans).all(), "Make sure your function assignPointsToCentroids assigns each point to the closest centroid" #check cluster assignments correctness
+
+# Comparing algorithm test set with an answer set
+centr_ans = loadtxt('../resource/asnlib/public/test_new_centroids.csv', delimiter = ',')
+test_new_cent = recalcCentroids(initial_centroids,points,res_cl_ass) #check centroids calculations correctness
+assert (np.round(test_new_cent,7) == np.round(centr_ans,7)).all(), "Make sure your function recalcCentroids works correctly"
+
+def myKmeans(centroids, points, cluster_assignments, max_iter = 30):
+    '''
+    Performs k-means clustering. Stops when the centroids corrdinates 
+    no longer change between iterations or when the maximum number of 
+    iterations has been reached.
+    
+    Inputs:
+        centroids: numpy array of shape (K, N), where K is the 
+        number of centroids and N is the dimensions of the points. 
+        
+        points: numpy array of shape (M, N), where M is the 
+        number of points and N is the dimensions of the points.
+        
+        cluster_assignments: numpy array of shape (M,) where 
+        each entry corresponds to an integer (type = int) from 
+        0 to K-1 corresponding to the nearest centroid of a given 
+        point.
+        
+        max_iter = 30, Maximum number of iterations. 
+        
+    Outputs:
+        centroids: Updated centroids (see above)
+        
+        cluster_assignments: Updated cluster assigments (see above)
+        
+        iteration: iteration number
+        
+        mean_error: returns the error as given by the calcError() function. 
+        
+        
+    '''
+    iteration = 0
+    newCentroids = np.empty_like(centroids)
+    while (centroids !=newCentroids).all() and iteration < max_iter:
+        cluster_assignments = assignPointsToCentroids(centroids, points)
+        newCentroids = recalcCentroids(centroids, points, cluster_assignments)
+        iteration +=1
+        #print(iteration)
+        mean_error = calcError(newCentroids, points, cluster_assignments)
+    return (centroids, cluster_assignments, iteration, mean_error)
+
+# Calling k-means function and defining maximum iterations
+max_iter=3
+centroids, cluster_assignments, iteration, total_error = myKmeans(initial_centroids, points,res_cl_ass,max_iter)
+
+# Another set of checks
+assert iteration > 0, "Make sure your loop executes at least once"
+assert iteration <= max_iter, 'Make sure your KMeans function stops after limiting number of iterations given as one of the arguments'#check max_iterations condition
+assert total_error < calcError(initial_centroids, points, res_cl_ass), 'Your model is not learning'
+
+# SELF-TEST
+K = 5  # Input the number of clusters (centroids) to compute
+
+#Initialize centroids to random data points
+M = points.shape[0] # number of points
+indices = []
+while len(indices) < K:
+    index = np.random.randint(0, M)
+    if not index in indices: #making sure each centroid is unique (i.e. no two centroids have the same initial coordinates)
+        indices.append(index)
+        
+initialCentroids = points[indices,:]
+cluster_assignments=assignPointsToCentroids(initialCentroids, points)
+max_iterations = 300
+# perform K-means on data
+centroids, cluster_assignments, iteration, total_error = myKmeans(initialCentroids, points,cluster_assignments,max_iterations)
+
+# Plotting results
+import matplotlib.pyplot as plt
+plt.scatter(points[:, 0], points[:, 1], c = cluster_assignments);
+plt.plot(centroids[:,0],centroids[:,1],'bo'); 
